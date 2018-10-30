@@ -21,6 +21,7 @@ global recv_packets
 global recv_check_packets
 
 
+########################### 客户端代码部分 ##############################
 #注册函数：发送和接收注册的数据报
 def register(server,sock):
     username = input('Input your username, Please: ')
@@ -28,6 +29,8 @@ def register(server,sock):
     print('[*] Logining...')
     message = "REGR" + "!@#" + "None" + "!@#" + username + "!:" + password
     sock.sendto(message.encode('utf-8'), server)
+    delay= 1
+    sock.settimeout(delay) #设置接收延迟
 
     while True:
         try:
@@ -37,7 +40,11 @@ def register(server,sock):
                 status = datagram[0]
                 data = datagram[1]
                 break
-        except:
+        except socket.timeout:
+            delay *= 2
+            if delay > 2.0:
+                raise RuntimeError("I think its a wrong server.")
+        else:
             pass
 
     if status=='REGRSUCCESS':
@@ -56,17 +63,23 @@ def login(server,sock):
     print('[*] Logining...')
     message =  "LOGIN" + "!@#" + "None" + "!@#" + username +"!:"+ password
     sock.sendto(message.encode('utf-8'), server)
+    delay = 1
+    sock.settimeout(delay)  # 设置接收延迟
 
     while True:
         try:
             datagram, addr = sock.recvfrom(MAX_BYTES)
             datagram = datagram.decode('utf-8').split("!@#", 1)
-            if len(datagram) == 2 and addr == server: #验证消息来源和消息格式
+            if len(datagram) == 2 and addr == server:  # 验证消息来源和消息格式
                 status = datagram[0]
                 data = datagram[1]
                 break
-        except:
-            pass
+        except socket.timeout:
+            delay *= 2
+            if delay > 2.0:
+                raise RuntimeError("I think its a wrong server.")
+    else:
+        pass
 
     if status=='LOGINSUCCESS':
         return username, data
@@ -77,7 +90,7 @@ def login(server,sock):
         return 0, 0
 
 
-
+# 客户端处理接收到的包的函数
 def ClientRecvData(sock, server, cusername, cookie):
     while True:
         try:
@@ -186,10 +199,11 @@ Now Enjoy :)
                 print('[!] Error input :)')
 
     sock.close()
-##################### 客户端代码结束 ########################
+########################### 客户端代码结束 ##############################
 
 
-###########33######## 服务器端代码部分 ########3#############
+
+########################### 服务器端代码部分 ########3###################
 # 固定时间间隔检测用户连接情况线程函数
 def CheckClientNet(sock):
     global clients_on
@@ -198,7 +212,7 @@ def CheckClientNet(sock):
         new_clients_on = {}
         check_clients = []
         backed_clients = []
-        time.sleep(10) #间隔10s检测一次
+        time.sleep(20) #间隔20s检测一次
         for check_client in clients_on:
             check_clients.append(check_client)
             message = "SCHECK" + "!@#None"  # SCHECK-None
@@ -273,13 +287,16 @@ def SolvData(sock, cookiebase):
                 print('[{}] [REGR-FAIL] Request from {}'.format(str(datetime.now()).split(".",1), caddr)[0])
             else:
                 print('[{}] [REGR-SUCCESS] Request from {}'.format(str(datetime.now()).split(".", 1)[0], caddr))
-                # 更新数据库和clientson
+                # 更新数据库和clientson，并把数据库保存到本地txt
                 for key,temp in list(clients_on.items()):
                     if temp.split("!@#",1)[0] == username: #删除同一用户名的登陆用户
                         del clients_on[key]
                 cookiebase.update(bytes(str(time.time()), encoding='utf-8'))
                 clients_on[caddr] = username + "!@#" + cookiebase.hexdigest()
                 db[username] = password
+                f = open('db.txt', 'w')
+                f.write(str(db))
+                f.close()
                 # 发送成功注册消息和cookie
                 message = "REGRSUCCESS" + "!@#" + cookiebase.hexdigest()
                 sock.sendto(message.encode('utf-8'), caddr)
@@ -337,6 +354,8 @@ def SolvData(sock, cookiebase):
                 print('[{}] [PVT-FAIL] Send from {} to {}: {}'.format(str(datetime.now()).split(".", 1)[0], caddr, func, data))
                 message = "PVTFAIL" + "!@#" + func  # PVTFAIL-username
                 sock.sendto(message.encode('utf-8'), caddr)
+            else:
+                print('[!][{}] WRONG DARAGRAM FROM {}'.format(str(datetime.now()).split(".", 1)[0], caddr))
             #@test end
 
 # 服务器端主函数
@@ -352,7 +371,16 @@ def server(port):
     global db
     global recv_packets
     global recv_check_packets
-    db = {'root': 'toor'}  # 创建用户名密码数据库
+    # 读取本地txt（作为数据库）中的用户名密码，没有txt就创建新txt并初始化
+    try:
+        f = open('db.txt', 'r')
+        db = eval(f.read())
+        f.close()
+    except:
+        db = {'root': 'toor'}  # 创建用户名密码数据库
+        f = open('db.txt', 'w')
+        f.write(str(db))
+        f.close()
     clients_on = {}  # 创建已登陆用户的字典 (addr,port):[username,cookie]
     recv_packets = queue.Queue()  # 为收到的消息创建一个队列
     recv_check_packets = queue.Queue()
@@ -376,15 +404,10 @@ def server(port):
 
     # 信息的处理与转发
     while True:
-        # try:
-        #     SolvData(sock, cookiebase)
-        # except:
-        #     print('[!] some wrong.')
-        #     pass
         SolvData(sock, cookiebase)
 
     sock.close()
-
+########################### 服务端代码结束 ##############################
 
 if __name__ == '__main__':
     # 参数创建主要有三个步骤：
