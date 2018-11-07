@@ -30,10 +30,7 @@ def register(server, sock):
     print('[*] Logining...')
     message = "REGR" + "!@#" + "None" + "!@#" + username + "!:" + password
     sock.sendto(message.encode('utf-8'), server)
-    #########################################################################
-    # 注册时有延时检测，保证如果服务器不存在或网络拥塞时不会永远等待                   ##
-    # 在此，我感谢《python网络编程》作者在书p24页对我的启发和帮助，以下是部分参考其的代码段#
-    ############################## START ####################################
+
     delay = 1
     sock.settimeout(delay)  # 设置接收延迟
 
@@ -51,7 +48,6 @@ def register(server, sock):
                 raise RuntimeError("I think its a wrong server.")
         else:
             pass
-    ##############################  END  ####################################
 
     if status == 'REGRSUCCESS':
         return username, data
@@ -102,7 +98,7 @@ def login(server, sock):
 # 说明：此函数作为子线程在后台不断接收报文，并且处理后查看消息格式是否正确， #
 #      查看是否来自服务器，查看cookie是否和会话cookie相同以防止数据包伪造#
 #      然后根据status决定如何处理该报文。                           #
-# ！创新！：每个sendto的message统一格式如下：                       #
+#  每个sendto的message统一格式如下：                              #
 # 服务端发来的正确包格式：Status!@#Data!@#Cookie                   #
 #                 这是我自己思考的格式，这些参数是正确处理每个报文必须的 #
 ################################################################
@@ -152,7 +148,7 @@ def ClientRecvData(sock, server, cusername, cookie):
 #################### 客户端主函数 #########################
 def client(sport, saddr):
     #######################################################################
-    # ！小改进！：获取客户端ip并尝试依靠随机数设置端口，若端口被占用就生成另一个随机端口 #
+    #           获取客户端ip并尝试依靠随机数设置端口，若端口被占用就生成另一个随机端口 #
     caddr = socket.gethostbyname(socket.gethostname())
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     server = (str(saddr), sport)
@@ -234,7 +230,7 @@ Now Enjoy :)
 # **************************** 服务端代码部分 *******************************#
 ####################################################
 #  函数：固定时间间隔检测用户连接情况线程函数。            #
-# ！改进！：这个函数在服务端程序里作为子线程执行，          #
+#         这个函数在服务端程序里作为子线程执行，          #
 #         隔一段时间就对所有在线的用户发包检查其是否还在线, #
 #         防止有用户没有请求下线就意外退出/网络不畅。      #
 def CheckClientNet(sock):
@@ -294,7 +290,7 @@ def RecvData(sock):
 # 函数：服务器端处理响应函数                             #
 # 功能：存在于主线程循环，若队列不空，从队列中取出处理过的消息，#
 #      然后根据func头放入响应if语句中执行。               #
-# ！创新！：每个sendto的message统一格式如下：            #
+#          每个sendto的message统一格式如下：            #
 # 客户端传来的正确格式：Func!@#Cookie!@#Data            #
 #                   这是我自己思考的报文格式             #
 ####################START############################
@@ -423,7 +419,7 @@ def server(port):
     global recv_check_packets
 
     ############ 读取本地txt（作为数据库）中的用户名密码，没有txt就创建新txt并初始化 #####################
-    ### ！改进！：启动服务器的同时导入/创建用户名密码的本地存储，方便导入和防止服务器端异常退出后用户名密码丢失 ##
+    ###         启动服务器的同时导入/创建用户名密码的本地存储，方便导入和防止服务器端异常退出后用户名密码丢失 ##
     ###         同时，用户注册成功的时会将最新的数据库实时保存到本地。                                 ##
     try:
         f = open('db.txt', 'r')
@@ -442,7 +438,7 @@ def server(port):
     ##########################################################################################
 
     ###############  创建监听 与 接收数据报线程  ###################
-    # ！改进！：把所有子线程进程设置为守护进程，主线程执行完毕，该线程均停止#
+    #  把所有子线程进程设置为守护进程，主线程执行完毕，该线程均停止       #
     #      可以防止服务端意外结束后子线程还在运行接受和处理数据         #
     myhost = socket.gethostbyname(socket.gethostname())
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -468,9 +464,6 @@ def server(port):
 
 
 if __name__ == '__main__':
-    #########################################################################
-    # 在此，我感谢《python网络编程》作者在书p20页对我的启发和帮助，以下是部分参考的代码段 #
-    ################################################# START #################
     parser = argparse.ArgumentParser(description='An B2B UDP chatroom based on python :)\n')  # 生成命令行对象parser
     parser.add_argument('c_or_s', choices={'client': client, 'server': server},
                         help='choose whether it\'s a server or a client.')  # 创建定位参数c_ro_s，必填
@@ -479,7 +472,7 @@ if __name__ == '__main__':
     parser.add_argument('-i', metavar='IP', type=str,
                         help='IP of chatroom server[Input if you are CLIENT!]')  # 创建客户端需求参数-i
     args = parser.parse_args()  # 解析参数
-    ################################################# END ###################
+
     if args.c_or_s == 'client':
         if args.i == None:
             print('[!] [MISSING PARAM]Run Client:-> /udp-chat-room.py client -i <ServerIP> [-p <SeverPORT>]')
